@@ -1,5 +1,5 @@
 const express = require("express");
-const ContractController = require("./../controllers/ContractController");
+const ContractController = require("./../controllers/contractController");
 const isCompany = require("../middleware/companyMiddleware");
 const isTalent = require("../middleware/talentMiddleware");
 const { isAdmin } = require("../middleware/adminMiddleware");

@@ -189,14 +189,14 @@ const deleteAdmin = catchAsync(async (req,res) => {
 const getAdminStats = async (req, res) => {
   try {
       // Calculate the date one month ago from the requesting date
-      const oneMonthAgo = new Date();
-      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+      const twoYearAgo = new Date();
+      twoYearAgo.setFullYear(twoYearAgo.getFullYear() - 2);
 
       // Aggregate users registered and jobs created by date
       const userStats = await User.aggregate([
           { 
               $match: {
-                  createdAt: { $gte: oneMonthAgo } // Fetch users registered within the last month
+                  createdAt: { $gte: twoYearAgo } // Fetch users registered within the last month
               }
           },
           { 
@@ -210,7 +210,7 @@ const getAdminStats = async (req, res) => {
       const jobStats = await JobPosting.aggregate([
           { 
               $match: {
-                  createdAt: { $gte: oneMonthAgo } // Fetch jobs created within the last month
+                  createdAt: { $gte: twoYearAgo } // Fetch jobs created within the last month
               }
           },
           { 
@@ -224,7 +224,7 @@ const getAdminStats = async (req, res) => {
       const talentstatus = await TalentProfile.aggregate([
         { 
             $match: {
-                createdAt: { $gte: oneMonthAgo } // Fetch jobs created within the last month
+                createdAt: { $gte: twoYearAgo } // Fetch jobs created within the last month
             }
         },
         { 
@@ -238,7 +238,7 @@ const getAdminStats = async (req, res) => {
     const companystatus = await CompanyProfile.aggregate([
       { 
           $match: {
-              createdAt: { $gte: oneMonthAgo } // Fetch jobs created within the last month
+              createdAt: { $gte: twoYearAgo } // Fetch jobs created within the last month
           }
       },
       { 
@@ -250,7 +250,7 @@ const getAdminStats = async (req, res) => {
   ]);
 
       // Merge userStats and jobStats into a single array
-      const statsData = mergeStats(userStats, jobStats,talentstatus,companystatus);
+      const statsData = mergeStats(userStats, jobStats,companystatus,talentstatus);
 
       res.status(200).json(statsData);
   } catch (error) {

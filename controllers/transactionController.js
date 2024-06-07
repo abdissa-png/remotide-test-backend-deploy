@@ -1,10 +1,12 @@
 const User = require("../models/userModel");
 const Withdrawal = require("../models/withdrawalModel");
-const Contract = require("../models/ContractModel");
+const Contract = require("../models/contractModel");
 const Transaction = require("../models/transactionModel");
+const Balance = require("../models/balanceModel");
 const Invoice = require("../models/invoiceModel");
 const AppError = require("./../helpers/appError");
 const catchAsync = require("./../helpers/catchAsync");
+const uuid = require("uuid");
 const {
   PAYPAL_BASE,
   FLW_BASE,
@@ -13,7 +15,7 @@ const {
   FLW_PUBLIC_KEY,
   FLW_SECRET_KEY,
 } = require("./../config");
-const {FRONTEND_URL} = require("./../config")
+const { FRONTEND_URL } = require("./../config");
 
 let fetch;
 (async () => {
@@ -144,8 +146,9 @@ const createFlutterWavePayment = catchAsync(async (req, res) => {
   // precheck before proceeding to payment
   const { companyUser, contract, invoiceDetails, talentUser } =
     await paymentPreCheck(invoiceId, userId, role);
+  const tx_ref = uuid.v4()
   const body = {
-    tx_ref: invoiceId,
+    tx_ref: tx_ref,
     amount: invoiceDetails.amount.toString(),
     currency: contract.paymentCurrency,
     redirect_url: `${FRONTEND_URL}/company`,
@@ -214,12 +217,27 @@ const capturePaypalOrder = catchAsync(async (req, res) => {
       await Transaction.create({
         invoiceId: invoiceDetails._id,
         transactionDetails: jsonResponse,
-        paymentMethod: "Paypal",
+        transactionMethod: "Paypal",
+        transactionType: "Payment",
         talentId: invoiceDetails.talentId,
         companyId: invoiceDetails.companyId,
       });
       invoiceDetails.status = "Fully Paid";
       await invoiceDetails.save();
+      const paymentDetails =
+        jsonResponse.purchase_units[0].payments.captures[0]
+          .seller_receivable_breakdown;
+      const totalReceivable =
+        Number(paymentDetails?.net_amount.value) ||
+        Number(paymentDetails?.net_amount.value);
+      const currency =
+        paymentDetails.net_amount.currency_code ||
+        paymentDetails.net_amount.currency_code;
+      await Balance.findOneAndUpdate(
+        { talentId: invoiceDetails.talentId },
+        { $inc: { [`balance.${currency}`]: totalReceivable } },
+        { upsert: true }
+      );
     }
     console.log(jsonResponse, JSON.stringify(jsonResponse), response.status);
     return res.status(response.status).json(jsonResponse);
@@ -231,70 +249,56 @@ const capturePaypalOrder = catchAsync(async (req, res) => {
   }
 });
 
+const checkWithdrawalValidity = async (amount, currency, userId) => {
+  if (!amount || !currency || !userId) {
+    throw new AppError("Invalid withdrawal details", 400);
+  }
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+  const userBalance = await Balance.findOne({ talentId: userId });
+  if (!userBalance) {
+    throw new AppError("Balance not found", 404);
+  }
+  if (!userBalance.balance[currency]) {
+    throw new AppError("Invalid currency", 400);
+  }
+  if (userBalance.balance[currency] < amount) {
+    throw new AppError("Insufficient balance", 400);
+  }
+
+  return { user, userBalance };
+};
+
 const createPaypalPayout = catchAsync(async (req, res) => {
-  const { invoiceId, transactionId } = req.body;
+  const { userId, role } = req.user;
+  const { amount, currency } = req.body;
+  const { user, userBalance } = await checkWithdrawalValidity(
+    amount,
+    currency,
+    userId
+  );
   const accessToken = await generateAccessToken();
-  console.log(invoiceId, transactionId);
-
-  // Retrieve invoice details from your database or data source
-  const invoiceDetails = await Invoice.findById(invoiceId);
-  let transaction = await Transaction.findById(transactionId);
-  if (!invoiceDetails) {
-    throw new AppError("This invoice does not exist.", 404);
-  }
-  if (!transaction) {
-    throw new AppError("This transaction does not exist.", 404);
-  }
-  if (transaction.withdrawalStatus == "Withdrawn") {
-    throw new AppError("This transaction has been already withdrawn", 401);
-  }
-  // Retrieve the company user and talent user details
-  const companyUser = await User.findById(invoiceDetails.companyId);
-  const talentUser = await User.findById(invoiceDetails.talentId);
-
+  console.log(userId)
   // Retrieve the withdrawal method for the talent user
   const withdrawalMethod = await Withdrawal.findOne({
-    userId: invoiceDetails.talentId,
+    userId: user._id,
     method: "Paypal",
   });
 
-  // Validate the withdrawal method and user existence
-  if (
-    !companyUser ||
-    !talentUser ||
-    !withdrawalMethod ||
-    withdrawalMethod.method !== "Paypal"
-  ) {
-    throw new AppError("Invalid user or withdrawal method", 400);
-  }
-  const contract = await Contract.findById(invoiceDetails.contractId);
-  if (!contract) {
-    throw new AppError("This contract does not exist", 404);
+  if (!withdrawalMethod) {
+    throw new AppError(
+      "You don't have a Paypal Withdrawal Method registered.",
+      400
+    );
   }
   const payoutPayeeEmail = withdrawalMethod.accountDetails.paypalEmail; // Payee email (talent)
-  let value, currency;
-  console.log(transaction);
-  if (transaction.paymentMethod == "Paypal") {
-    const paymentDetails =
-      transaction.transactionDetails.purchase_units[0].payments.captures[0]
-        .seller_receivable_breakdown;
-    if (paymentDetails?.receivable_amount) {
-      value = Number(paymentDetails.receivable_amount.value);
-      currency = paymentDetails.receivable_amount.currency_code;
-    } else if (paymentDetails?.net_amount) {
-      value = Number(paymentDetails.net_amount.value);
-      currency = paymentDetails.net_amount.currency_code;
-    }
-  }
-  if (transaction.paymentMethod == "FlutterWave") {
-    value = transaction.transactionDetails.data.amount_settled;
-    currency = transaction.transactionDetails.data.currency;
-  }
-  console.log(value, currency);
+  const payoutId = uuid.v4();
   const payoutCreateParams = {
     sender_batch_header: {
-      sender_batch_id: invoiceId, // Use invoiceId as the batch ID
-      email_subject: "Payout for Invoice " + invoiceDetails.invoiceName,
+      sender_batch_id: payoutId,
+      email_subject: `Payout for ${amount} ${currency}`,
       email_message:
         "You have received a payout! Thanks for using our service!",
     },
@@ -302,16 +306,17 @@ const createPaypalPayout = catchAsync(async (req, res) => {
       {
         recipient_type: "EMAIL",
         amount: {
-          value: value,
+          value: amount,
           currency: currency,
         },
         receiver: payoutPayeeEmail, // Payee email
-        note: invoiceDetails.invoiceName, // Optional note
-        sender_item_id: invoiceId, // Use invoiceId as the item ID
+        note: `Transaction made to withdraw ${amount} ${currency} on ${new Date().toString()} by ${
+          user.name
+        }`, // Optional note
+        sender_item_id: payoutId,
       },
     ],
   };
-
   const response = await fetch(`${PAYPAL_BASE}/v1/payments/payouts`, {
     method: "POST",
     headers: {
@@ -320,16 +325,39 @@ const createPaypalPayout = catchAsync(async (req, res) => {
     },
     body: JSON.stringify(payoutCreateParams),
   });
-
   try {
     const jsonResponse = await response.json();
     if (response.status == 201) {
-      transaction.withdrawalStatus = "Withdrawn";
-      transaction.withdrawalId = withdrawalMethod._id;
-      await transaction.save();
+      var payout = await fetch(jsonResponse.links[0].href, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+      const payoutJson = await payout.json()
+      console.log(payoutJson.items[0].payout_item)
+      const value = Number(payoutJson.items[0].payout_item.amount.value)
+      const valCurrency = payoutJson.items[0].payout_item.amount.currency
+      const fee = Number(payoutJson.items[0].payout_item_fee.value)
+      const feeCurrency = payoutJson.items[0].payout_item_fee.currency
+
+      await Transaction.create({
+        talentId: userId,
+        transactionDetails: payoutJson.items[0],
+        transactionMethod: "Paypal",
+        transactionType: "Withdrawal",
+        withdrawalId: withdrawalMethod._id,
+      });
+      userBalance.balance[valCurrency] -= value;
+      userBalance.balance[feeCurrency] -= fee;
+      await userBalance.save();
     }
-    return res.status(response.status).json(jsonResponse);
+    return res
+      .status(response.status)
+      .json({ status: "success", data: jsonResponse });
   } catch (err) {
+    console.log("New Error",err)
     const errorMessage = await response.text();
     throw new AppError(errorMessage, 500);
   }
@@ -349,38 +377,76 @@ const getTransactions = catchAsync(async (req, res) => {
   } else if (role == "admin" || role == "superadmin") {
     transactions = await Transaction.find().populate("invoiceId");
   }
-
   transactions = transactions.map((transaction) => {
-    var paymentDetails;
-    if (transaction.paymentMethod == "Paypal") {
-      paymentDetails =
-        transaction.transactionDetails.purchase_units[0].payments.captures[0]
-          .seller_receivable_breakdown;
-    }
-    if (transaction.paymentMethod == "FlutterWave") {
-      paymentDetails = {
-        amount: transaction.transactionDetails.data.amount,
-        currency: transaction.transactionDetails.data.currency,
-        charged_amount: transaction.transactionDetails.data.charged_amount,
-        app_fee: transaction.transactionDetails.data.app_fee,
-        amount_settled: transaction.transactionDetails.data.amount_settled,
+    if (transaction.transactionType == "Payment") {
+      var paymentDetails;
+      if (transaction.transactionMethod == "Paypal") {
+        paymentDetails =
+          transaction.transactionDetails.purchase_units[0].payments.captures[0]
+            .seller_receivable_breakdown;
+      }
+      if (transaction.transactionMethod == "FlutterWave") {
+        paymentDetails = {
+          amount: transaction.transactionDetails.amount,
+          currency: transaction.transactionDetails.currency,
+          charged_amount: transaction.transactionDetails.charged_amount,
+          app_fee: transaction.transactionDetails.app_fee,
+          amount_settled: transaction.transactionDetails.amount_settled,
+        };
+      }
+      return {
+        _id: transaction._id,
+        name: transaction.invoiceId.invoiceName,
+        amount: transaction.invoiceId.amount,
+        companyId: transaction.invoiceId.companyId,
+        talentId: transaction.invoiceId.talentId,
+        contractId: transaction.invoiceId.contractId,
+        invoiceId: transaction.invoiceId._id,
+        transactionMethod: transaction.transactionMethod,
+        transactionType: transaction.transactionType,
+        createdAt: transaction.createdAt,
+        paymentDetails: paymentDetails,
+      };
+    } else {
+      var paymentDetails;
+      var name;
+      var amount
+      if (transaction.transactionMethod == "Paypal") {
+        name= transaction.transactionDetails.payout_item.note
+        amount = Number(transaction.transactionDetails.payout_item.amount.value)
+        currency = Number(transaction.transactionDetails.payout_item.amount.currency)
+        fee = Number(transaction.transactionDetails.payout_item_fee.value)
+        paymentDetails = {
+          amount: amount,
+          currency: currency,
+          app_fee: fee,
+          amount_settled: amount + fee,
+        };
+      }
+      if (transaction.transactionMethod == "FlutterWave") {
+        name = transaction.transactionDetails.narration
+        amount = Number(transaction.transactionDetails.amount)
+        currency = transaction.transactionDetails.currency
+        fee = transaction.transactionDetails.fee
+        paymentDetails = {
+          amount: amount,
+          currency: currency,
+          app_fee: fee,
+          amount_settled: amount + fee,
+        };
+      }
+      return {
+        _id: transaction._id,
+        name: name,
+        amount: amount,
+        talentId: transaction.talentId,
+        transactionMethod: transaction.transactionMethod,
+        transactionType: transaction.transactionType,
+        createdAt: transaction.createdAt,
+        paymentDetails: paymentDetails,
       };
     }
-    return {
-      _id: transaction._id,
-      invoiceName: transaction.invoiceId.invoiceName,
-      amount: transaction.invoiceId.amount,
-      companyId: transaction.invoiceId.companyId,
-      talentId: transaction.invoiceId.talentId,
-      contractId: transaction.invoiceId.contractId,
-      invoiceId: transaction.invoiceId._id,
-      withdrawalStatus: transaction.withdrawalStatus,
-      paymentMethod: transaction.paymentMethod,
-      createdAt: transaction.createdAt,
-      paymentDetails: paymentDetails,
-    };
   });
-
   // console.log(invoices);
   res.status(200).json({ status: "success", data: transactions });
 });
@@ -392,36 +458,75 @@ const getTransactionById = catchAsync(async (req, res) => {
   if (!transaction) {
     return res.status(404).json({ message: "Transaction not found." });
   }
-  var paymentDetails;
-  if (transaction.paymentMethod == "Paypal") {
-    paymentDetails =
-      transaction.transactionDetails.purchase_units[0].payments.captures[0]
-        .seller_receivable_breakdown;
-  }
-  if (transaction.paymentMethod == "FlutterWave") {
-    paymentDetails = {
-      amount: transaction.transactionDetails.data.amount,
-      currency: transaction.transactionDetails.data.currency,
-      charged_amount: transaction.transactionDetails.data.charged_amount,
-      app_fee: transaction.transactionDetails.data.app_fee,
-      amount_settled: transaction.transactionDetails.data.amount_settled,
+  if (transaction.transactionType == "Payment") {
+    var paymentDetails;
+    if (transaction.transactionMethod == "Paypal") {
+      paymentDetails =
+        transaction.transactionDetails.purchase_units[0].payments.captures[0]
+          .seller_receivable_breakdown;
+    }
+    if (transaction.transactionMethod == "FlutterWave") {
+      paymentDetails = {
+        amount: transaction.transactionDetails.amount,
+        currency: transaction.transactionDetails.currency,
+        charged_amount: transaction.transactionDetails.charged_amount,
+        app_fee: transaction.transactionDetails.app_fee,
+        amount_settled: transaction.transactionDetails.amount_settled,
+      };
+    }
+    transaction = {
+      _id: transaction._id,
+      name: transaction.invoiceId.invoiceName,
+      amount: transaction.invoiceId.amount,
+      companyId: transaction.invoiceId.companyId,
+      talentId: transaction.invoiceId.talentId,
+      contractId: transaction.invoiceId.contractId,
+      invoiceId: transaction.invoiceId._id,
+      transactionMethod: transaction.transactionMethod,
+      transactionType: transaction.transactionType,
+      createdAt: transaction.createdAt,
+      paymentDetails: paymentDetails,
+    };
+  } else {
+    var paymentDetails;
+      var name;
+      var amount
+      if (transaction.transactionMethod == "Paypal") {
+        name= transaction.transactionDetails.payout_item.note
+        amount = Number(transaction.transactionDetails.payout_item.amount.value)
+        currency = transaction.transactionDetails.payout_item.amount.currency
+        fee = Number(transaction.transactionDetails.payout_item_fee.value)
+        paymentDetails = {
+          amount: amount,
+          currency: currency,
+          app_fee: fee,
+          amount_settled: amount + fee,
+        };
+      }
+    if (transaction.transactionMethod == "FlutterWave") {
+      name = transaction.transactionDetails.narration
+      amount = Number(transaction.transactionDetails.amount)
+      currency = transaction.transactionDetails.currency
+      fee = transaction.transactionDetails.fee
+      paymentDetails = {
+        amount: amount,
+        currency: currency,
+        app_fee: fee,
+        amount_settled: amount + fee,
+      };
+    }
+    transaction = {
+      _id: transaction._id,
+      name: name,
+      amount: amount,
+      talentId: transaction.talentId,
+      transactionMethod: transaction.transactionMethod,
+      transactionType: transaction.transactionType,
+      createdAt: transaction.createdAt,
+      paymentDetails: paymentDetails,
     };
   }
-  transaction = {
-    _id: transaction._id,
-    invoiceName: transaction.invoiceId.invoiceName,
-    amount: transaction.invoiceId.amount,
-    companyId: transaction.invoiceId.companyId,
-    talentId: transaction.invoiceId.talentId,
-    contractId: transaction.invoiceId.contractId,
-    invoiceId: transaction.invoiceId._id,
-    withdrawalStatus: transaction.withdrawalStatus,
-    paymentMethod: transaction.paymentMethod,
-    createdAt: transaction.createdAt,
-    paymentDetails: paymentDetails,
-  };
-
-  res.status(200).json({ status: "success", data: transaction });
+  return res.status(200).json({ status: "success", data: transaction });
 });
 
 const getFlutterWaveBanks = catchAsync(async (req, res) => {
@@ -444,78 +549,43 @@ const getFlutterWaveBanks = catchAsync(async (req, res) => {
   }
 });
 const createFlutterWaveTransfer = catchAsync(async (req, res) => {
-  const { invoiceId, transactionId } = req.body;
-  console.log(invoiceId, transactionId);
-
-  // Retrieve invoice details from your database or data source
-  const invoiceDetails = await Invoice.findById(invoiceId);
-  let transaction = await Transaction.findById(transactionId);
-  if (!invoiceDetails) {
-    throw new AppError("This invoice does not exist.", 404);
-  }
-  if (!transaction) {
-    throw new AppError("This transaction does not exist.", 404);
-  }
-  if (transaction.withdrawalStatus == "Withdrawn") {
-    throw new AppError("This transaction has been already withdrawn", 401);
-  }
-  // Retrieve the company user and talent user details
-  const companyUser = await User.findById(invoiceDetails.companyId);
-  const talentUser = await User.findById(invoiceDetails.talentId);
-
+  const { userId, role } = req.user;
+  const { amount, currency } = req.body;
+  const { user, userBalance } = await checkWithdrawalValidity(
+    amount,
+    currency,
+    userId
+  );
   // Retrieve the withdrawal method for the talent user
   const withdrawalMethod = await Withdrawal.findOne({
-    userId: invoiceDetails.talentId,
+    userId: user._id,
     method: "FlutterWave",
   });
-
-  // Validate the withdrawal method and user existence
-  if (
-    !companyUser ||
-    !talentUser ||
-    !withdrawalMethod ||
-    withdrawalMethod.method !== "FlutterWave"
-  ) {
-    throw new AppError("Invalid user or withdrawal method", 400);
+  if (!withdrawalMethod) {
+    throw new AppError(
+      "You don't have a Flutterwave Withdrawal Method registered.",
+      400
+    );
   }
-  const contract = await Contract.findById(invoiceDetails.contractId);
-  if (!contract) {
-    throw new AppError("This contract does not exist", 404);
-  }
-  const {account_number,account_bank,account_country} = withdrawalMethod.accountDetails;
-  let value, currency;
-  if (transaction.paymentMethod == "Paypal") {
-    const paymentDetails =
-      transaction.transactionDetails.purchase_units[0].payments.captures[0]
-        .seller_receivable_breakdown;
-    if (paymentDetails?.receivable_amount) {
-      value = Number(paymentDetails.receivable_amount.value);
-      currency = paymentDetails.receivable_amount.currency_code;
-    } else if (paymentDetails?.net_amount) {
-      value = Number(paymentDetails.net_amount.value);
-      currency = paymentDetails.net_amount.currency_code;
-    }
-  }
-  if (transaction.paymentMethod == "FlutterWave") {
-    value = transaction.transactionDetails.data.amount_settled;
-    currency = transaction.transactionDetails.data.currency;
-  }
+  const { account_number, account_bank, account_country } =
+    withdrawalMethod.accountDetails;
+  const transferId = uuid.v4();
   const transferCreateParams = {
     account_bank: account_bank,
     account_number: account_number,
-    amount: value,
+    amount: amount,
     currency: currency,
-    reference: invoiceId,
-    narration: "Payment for "+invoiceDetails.invoiceName,
-    beneficiary_name: talentUser.name,
+    reference: transferId,
+    narration: `Transaction made to withdraw ${amount} ${currency} on ${new Date().toString()} by ${
+      user.name
+    }`,
+    beneficiary_name: user.name,
     beneficiary_country: account_country,
-    callback_url:`https://www.flutterwave.com/${account_country}/`,
-    meta:{
-      sender:companyUser.name,
-      sender_email_address:companyUser.email,
+    callback_url: `https://www.flutterwave.com/${account_country}/`,
+    meta: {
+      sender: "Remotide",
     },
   };
-
   const response = await fetch(`${FLW_BASE}/v3/transfers`, {
     method: "POST",
     headers: {
@@ -527,10 +597,21 @@ const createFlutterWaveTransfer = catchAsync(async (req, res) => {
 
   try {
     const jsonResponse = await response.json();
+    console.log(jsonResponse)
     if (response.status == 200) {
-      transaction.withdrawalStatus = "Withdrawn";
-      transaction.withdrawalId = withdrawalMethod._id;
-      await transaction.save();
+      var payoutCurrency = jsonResponse.data.currency;
+      var payoutAmount = jsonResponse.data.amount;
+      var payoutFee = jsonResponse.data.fee
+      await Transaction.create({
+        talentId: userId,
+        transactionDetails: jsonResponse.data,
+        transactionMethod: "FlutterWave",
+        transactionType: "Withdrawal",
+        withdrawalId: withdrawalMethod._id,
+      });
+      userBalance.balance[payoutCurrency] -= payoutAmount;
+      userBalance.balance[payoutCurrency] -= payoutFee;
+      await userBalance.save();
     }
     return res.status(response.status).json(jsonResponse);
   } catch (err) {

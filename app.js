@@ -11,6 +11,7 @@ const contractRouter = require('./routes/contractRouter');
 const InvoiceRouter = require('./routes/invoiceRouter');
 const WithdrawalRouter = require('./routes/withdrawalRouter')
 const TransactionRouter = require('./routes/transactionRouter')
+const balanceRouter = require('./routes/balanceRouter');
 const cron = require("node-cron");
 const Invoice = require("./models/invoiceModel");
 const sendReminderEmail = require("./cronJobs")
@@ -36,6 +37,7 @@ app.use('/api/contract', contractRouter);
 app.use('/api/invoice', InvoiceRouter);
 app.use('/api/withdrawal', WithdrawalRouter)
 app.use('/api/transaction',TransactionRouter)
+app.use('/api/balance', balanceRouter);
 // Serve static files from the 'uploads' directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // app.use('/api/packages', packageRouter);

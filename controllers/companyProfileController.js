@@ -2,7 +2,7 @@ const Joi = require('joi');
 const CompanyProfile = require('../models/companyProfileModel');
 const User = require('../models/user');
 const mongoose = require('mongoose');
-const AppError = require('./../helpers/appError');
+const AppError = require('../helpers/appError');
 
 // Define the validation schema using Joi
 const companyProfileSchema = Joi.object({

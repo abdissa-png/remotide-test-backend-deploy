@@ -4,7 +4,7 @@ const user = require("../models/userModel");
 const cron = require("node-cron");
 const nodemailer = require("nodemailer");
 const catchAsync = require("./../helpers/catchAsync");
-const Contract = require("../models/ContractModel");
+const Contract = require("../models/contractModel");
 const TalentProfile = require("../models/talentProfileModel");
 
 const getInvoices = catchAsync(async (req, res) => {

@@ -19,17 +19,20 @@ const handleAsync = (fn) => (req, res, next) => {
 
 const signup = catchAsync(async (req, res, next) => {
   // Check if email already exists
-  // const existingUser = await User.findOne({ email: req.body.email });
-  // if (existingUser) {
-  //   return next(new AppError('Email already exists', 400));
-  // }
+  const existingUser = await User.findOne({ email: req.body.email });
+  if (existingUser) {
+    return next(new AppError('Email already exists', 400));
+  }
   
   
-  //   if (req.body.role!=="talent" && req.body.role!=="company" ){
-  //     return next(new AppError("You are not allowed to signup in roles other than talent and company.",401))
-  // }
+  if (req.body.role!=="talent" && req.body.role!=="company" ){
+    return next(new AppError("You are not allowed to signup in roles other than talent and company.",401))
+  }
 
-   
+  if (req.body.password.length < 8) {
+    return next(new AppError('Password must be at least 8 characters long', 400));
+
+  }
 
   // Hashing the password
   const hashedPassword = await hashPassword(req.body.password);

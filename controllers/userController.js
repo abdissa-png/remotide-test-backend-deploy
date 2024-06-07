@@ -6,7 +6,7 @@ const catchAsync = require('./../helpers/catchAsync');
 const multer = require("multer");
 const path  = require("path");
 const { upload,staticFilePath } = require("../helpers/fileUpload")
-const ResumeData = require('../models/ResumeDataModel');
+const ResumeData = require('../models/resumeDataModel');
 const fs = require('fs');
 const pdf = require('pdf-parse'); // Import the pdf module
 const mongoose = require('mongoose');
@@ -17,6 +17,7 @@ const handleAsync = (fn) => (req, res, next) => {
 };
 const getTalentProfile=catchAsync(async (req,res) => {
   const userId = req.params.id;
+  console.log(userId)
   if (!mongoose.Types.ObjectId.isValid(userId)) {
     throw new AppError('Invalid ID provided', 400);
   }
@@ -30,6 +31,7 @@ const getTalentProfile=catchAsync(async (req,res) => {
   if (!existingProfile) {
     throw new AppError('Talent profile not found', 404);
   };
+  console.log(existingProfile)
   res.status(200).json({
     status: 'success',
     message: 'Talent profile fetched successfully',

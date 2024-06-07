@@ -147,7 +147,7 @@ const router = express.Router();
 router.post('/signup', authController.signup);
 router.post('/login',authController.login);
 
-router.route('/talent/profile/:id').patch(auth,isTalent,userController.updateTalentProfile).get(auth,isTalent,userController.getTalentProfile);
+router.route('/talent/profile/:id').patch(auth,isTalent,userController.updateTalentProfile).get(auth,userController.getTalentProfile);
 router.route('/company/profile/:id').patch(auth,isCompany,userController.updateCompanyProfile).get(auth,isCompany,userController.getCompanyProfile);
 
 // edit profile

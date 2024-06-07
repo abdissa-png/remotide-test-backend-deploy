@@ -1,7 +1,7 @@
 const fs = require('fs');
 const pdf = require('pdf-parse');
 const path = require('path');
-const ResumeData = require('../models/ResumeDataModel');
+const ResumeData = require('../models/resumeDataModel');
 
 const gResumesId = async (req, res) => {
     const resumeId = req.params.resumeId; // Assuming the resume ID is passed as a parameter

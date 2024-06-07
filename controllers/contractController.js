@@ -1,4 +1,4 @@
-const Contract = require("../models/ContractModel");
+const Contract = require("../models/contractModel");
 const mongoose = require("mongoose");
 const CompanyProfile = require("../models/companyProfileModel");
 const talentprofile = require("../models/talentProfileModel");
@@ -9,8 +9,8 @@ const User = require("../models/userModel");
 const path = require("path");
 const multer = require("multer");
 const { upload, staticFilePath } = require("../helpers/fileUpload");
-const catchAsync = require("./../helpers/catchAsync");
-const {FRONTEND_URL} =require("./../config")
+const catchAsync = require("../helpers/catchAsync");
+const {FRONTEND_URL} =require("../config")
 //const PDFGenerator = require('../utils/PDFGenerator');
 const createContract = catchAsync(async (req, res) => {
   let additionalDocuments;
