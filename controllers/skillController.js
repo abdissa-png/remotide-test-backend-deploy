@@ -1,14 +1,12 @@
-const Skill = require('../models/skillModel');
-const AppError = require('./../helpers/appError');
-const catchAsync = require('./../helpers/catchAsync');
-
-
+const Skill = require("../models/skillModel");
+const AppError = require("./../helpers/appError");
+const catchAsync = require("./../helpers/catchAsync");
 
 // Create a new skill
 const createSkills = catchAsync(async (req, res) => {
   const newSkill = await Skill.create(req.body);
   res.status(201).json({
-    status: 'success',
+    status: "success",
     data: {
       skill: newSkill,
     },
@@ -18,7 +16,7 @@ const createSkills = catchAsync(async (req, res) => {
 // Get all skills
 const getAllSkills = catchAsync(async (req, res) => {
   const skills = await Skill.find();
-  res.status(200).json({status:"success",skills});
+  res.status(200).json({ status: "success", skills });
 });
 
 // Get a skill by ID
@@ -26,22 +24,26 @@ const getSkillById = catchAsync(async (req, res) => {
   const { id } = req.params;
   const skill = await Skill.findById(id);
   if (!skill) {
-    throw new AppError('Skill not found', 404);
+    throw new AppError("Skill not found", 404);
   }
-  res.status(200).json({status:"success",skill});
+  res.status(200).json({ status: "success", skill });
 });
 
 // Update a skill by ID
 const updateSkillById = catchAsync(async (req, res) => {
   const { id } = req.params;
   const { name } = req.body;
-  const updatedSkill = await Skill.findByIdAndUpdate(id, { name }, { new: true });
+  const updatedSkill = await Skill.findByIdAndUpdate(
+    id,
+    { name },
+    { new: true }
+  );
   if (!updatedSkill) {
-    throw new AppError('Skill not found', 404);
+    throw new AppError("Skill not found", 404);
   }
   res.status(200).json({
-    status: 'success',
-    message: 'Skill updated successfully',
+    status: "success",
+    message: "Skill updated successfully",
     updatedSkill,
   });
 });
@@ -51,9 +53,11 @@ const deleteSkillById = catchAsync(async (req, res) => {
   const { id } = req.params;
   const deletedSkill = await Skill.findByIdAndDelete(id);
   if (!deletedSkill) {
-    throw new AppError('Skill not found', 404);
+    throw new AppError("Skill not found", 404);
   }
-  res.status(200).json({ status:"success",message: 'Skill deleted successfully' });
+  res
+    .status(200)
+    .json({ status: "success", message: "Skill deleted successfully" });
 });
 
 module.exports = {

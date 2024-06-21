@@ -2,6 +2,7 @@ const Joi = require('joi');
 const CompanyProfile = require('../models/companyProfileModel');
 const User = require('../models/user');
 const mongoose = require('mongoose');
+const catchAsync = require('../helpers/catchAsync');
 const AppError = require('../helpers/appError');
 
 // Define the validation schema using Joi
@@ -13,7 +14,7 @@ const companyProfileSchema = Joi.object({
   website: Joi.string().uri().required(),
 });
 
-const createCompanyProfile = async (req, res, next) => {
+const createCompanyProfile =  catchAsync(async (req, res, next) => {
   try {
     // Validate request body
     const { error } = companyProfileSchema.validate(req.body, {
@@ -68,7 +69,7 @@ const createCompanyProfile = async (req, res, next) => {
     console.error(error);
     next(new AppError('Internal Server Error', 500));
   }
-};
+});
 
 module.exports = {
   createCompanyProfile,

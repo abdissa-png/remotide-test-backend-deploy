@@ -10,7 +10,7 @@ const path = require("path");
 const multer = require("multer");
 const { upload, staticFilePath } = require("../helpers/fileUpload");
 const catchAsync = require("../helpers/catchAsync");
-const {FRONTEND_URL} =require("../config")
+const { FRONTEND_URL } = require("../config");
 //const PDFGenerator = require('../utils/PDFGenerator');
 const createContract = catchAsync(async (req, res) => {
   let additionalDocuments;
@@ -137,13 +137,15 @@ const getContractsByTalentID = catchAsync(async (req, res) => {
 // Delete contract if status is unsigned
 const deleteContract = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const {userId} = req.user;
+  const { userId } = req.user;
   const currentcontract = await Contract.findById(id);
   if (!currentcontract) {
     return res.status(404).json({ message: "Contract not found" });
   }
   if (currentcontract.companyId.toString() != userId) {
-    return res.status(401).json({ message: "You are unauthorized to delete this contract." });
+    return res
+      .status(401)
+      .json({ message: "You are unauthorized to delete this contract." });
   }
   if (currentcontract.status !== "Unsigned") {
     return res.status(403).json({
@@ -198,7 +200,7 @@ const signContract = catchAsync(async (req, res) => {
       issueDate.setDate(issueDate.getDate() + 7);
     }
     var dueDate = new Date(issueDate.getTime());
-    dueDate.setDate(dueDate.getDate() + contract.paymentDue )
+    dueDate.setDate(dueDate.getDate() + contract.paymentDue);
     const newInvoice = await Invoice.create({
       invoiceName: `${prefix} ${contract.contractName}`, // Corrected template literal usage
       companyId: contract.companyId,

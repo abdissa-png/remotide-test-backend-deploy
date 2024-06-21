@@ -11,10 +11,6 @@ const fs = require('fs');
 const pdf = require('pdf-parse'); // Import the pdf module
 const mongoose = require('mongoose');
 
-
-const handleAsync = (fn) => (req, res, next) => {
-  fn(req, res, next).catch(next);
-};
 const getTalentProfile=catchAsync(async (req,res) => {
   const userId = req.params.id;
   console.log(userId)

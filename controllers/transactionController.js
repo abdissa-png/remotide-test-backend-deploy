@@ -146,7 +146,7 @@ const createFlutterWavePayment = catchAsync(async (req, res) => {
   // precheck before proceeding to payment
   const { companyUser, contract, invoiceDetails, talentUser } =
     await paymentPreCheck(invoiceId, userId, role);
-  const tx_ref = uuid.v4()
+  const tx_ref = uuid.v4();
   const body = {
     tx_ref: tx_ref,
     amount: invoiceDetails.amount.toString(),
@@ -280,7 +280,7 @@ const createPaypalPayout = catchAsync(async (req, res) => {
     userId
   );
   const accessToken = await generateAccessToken();
-  console.log(userId)
+  console.log(userId);
   // Retrieve the withdrawal method for the talent user
   const withdrawalMethod = await Withdrawal.findOne({
     userId: user._id,
@@ -334,13 +334,13 @@ const createPaypalPayout = catchAsync(async (req, res) => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-      })
-      const payoutJson = await payout.json()
-      console.log(payoutJson.items[0].payout_item)
-      const value = Number(payoutJson.items[0].payout_item.amount.value)
-      const valCurrency = payoutJson.items[0].payout_item.amount.currency
-      const fee = Number(payoutJson.items[0].payout_item_fee.value)
-      const feeCurrency = payoutJson.items[0].payout_item_fee.currency
+      });
+      const payoutJson = await payout.json();
+      console.log(payoutJson.items[0].payout_item);
+      const value = Number(payoutJson.items[0].payout_item.amount.value);
+      const valCurrency = payoutJson.items[0].payout_item.amount.currency;
+      const fee = Number(payoutJson.items[0].payout_item_fee.value);
+      const feeCurrency = payoutJson.items[0].payout_item_fee.currency;
 
       await Transaction.create({
         talentId: userId,
@@ -357,7 +357,7 @@ const createPaypalPayout = catchAsync(async (req, res) => {
       .status(response.status)
       .json({ status: "success", data: jsonResponse });
   } catch (err) {
-    console.log("New Error",err)
+    console.log("New Error", err);
     const errorMessage = await response.text();
     throw new AppError(errorMessage, 500);
   }
@@ -410,12 +410,16 @@ const getTransactions = catchAsync(async (req, res) => {
     } else {
       var paymentDetails;
       var name;
-      var amount
+      var amount;
       if (transaction.transactionMethod == "Paypal") {
-        name= transaction.transactionDetails.payout_item.note
-        amount = Number(transaction.transactionDetails.payout_item.amount.value)
-        currency = Number(transaction.transactionDetails.payout_item.amount.currency)
-        fee = Number(transaction.transactionDetails.payout_item_fee.value)
+        name = transaction.transactionDetails.payout_item.note;
+        amount = Number(
+          transaction.transactionDetails.payout_item.amount.value
+        );
+        currency = Number(
+          transaction.transactionDetails.payout_item.amount.currency
+        );
+        fee = Number(transaction.transactionDetails.payout_item_fee.value);
         paymentDetails = {
           amount: amount,
           currency: currency,
@@ -424,10 +428,10 @@ const getTransactions = catchAsync(async (req, res) => {
         };
       }
       if (transaction.transactionMethod == "FlutterWave") {
-        name = transaction.transactionDetails.narration
-        amount = Number(transaction.transactionDetails.amount)
-        currency = transaction.transactionDetails.currency
-        fee = transaction.transactionDetails.fee
+        name = transaction.transactionDetails.narration;
+        amount = Number(transaction.transactionDetails.amount);
+        currency = transaction.transactionDetails.currency;
+        fee = transaction.transactionDetails.fee;
         paymentDetails = {
           amount: amount,
           currency: currency,
@@ -489,25 +493,25 @@ const getTransactionById = catchAsync(async (req, res) => {
     };
   } else {
     var paymentDetails;
-      var name;
-      var amount
-      if (transaction.transactionMethod == "Paypal") {
-        name= transaction.transactionDetails.payout_item.note
-        amount = Number(transaction.transactionDetails.payout_item.amount.value)
-        currency = transaction.transactionDetails.payout_item.amount.currency
-        fee = Number(transaction.transactionDetails.payout_item_fee.value)
-        paymentDetails = {
-          amount: amount,
-          currency: currency,
-          app_fee: fee,
-          amount_settled: amount + fee,
-        };
-      }
+    var name;
+    var amount;
+    if (transaction.transactionMethod == "Paypal") {
+      name = transaction.transactionDetails.payout_item.note;
+      amount = Number(transaction.transactionDetails.payout_item.amount.value);
+      currency = transaction.transactionDetails.payout_item.amount.currency;
+      fee = Number(transaction.transactionDetails.payout_item_fee.value);
+      paymentDetails = {
+        amount: amount,
+        currency: currency,
+        app_fee: fee,
+        amount_settled: amount + fee,
+      };
+    }
     if (transaction.transactionMethod == "FlutterWave") {
-      name = transaction.transactionDetails.narration
-      amount = Number(transaction.transactionDetails.amount)
-      currency = transaction.transactionDetails.currency
-      fee = transaction.transactionDetails.fee
+      name = transaction.transactionDetails.narration;
+      amount = Number(transaction.transactionDetails.amount);
+      currency = transaction.transactionDetails.currency;
+      fee = transaction.transactionDetails.fee;
       paymentDetails = {
         amount: amount,
         currency: currency,
@@ -597,11 +601,11 @@ const createFlutterWaveTransfer = catchAsync(async (req, res) => {
 
   try {
     const jsonResponse = await response.json();
-    console.log(jsonResponse)
+    console.log(jsonResponse);
     if (response.status == 200) {
       var payoutCurrency = jsonResponse.data.currency;
       var payoutAmount = jsonResponse.data.amount;
-      var payoutFee = jsonResponse.data.fee
+      var payoutFee = jsonResponse.data.fee;
       await Transaction.create({
         talentId: userId,
         transactionDetails: jsonResponse.data,

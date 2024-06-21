@@ -101,10 +101,11 @@ const createInvoice = catchAsync(async (req, res) => {
   const contract = await Contract.findById(contractId);
   const today = new Date();
   if (contract.contractType == "Pay As You Go") {
-    const minHourForPayment = contract.paymentDetail.payAsYouGo.minimumHourForPayment;
+    const minHourForPayment =
+      contract.paymentDetail.payAsYouGo.minimumHourForPayment;
     const hourlyRate = contract.paymentDetail.payAsYouGo.hourlyRate;
     const dueDate = new Date(today.getTime());
-    dueDate.setDate(dueDate.getDate()+contract.paymentDue)
+    dueDate.setDate(dueDate.getDate() + contract.paymentDue);
     if (workHours >= minHourForPayment) {
       const invoice = await Invoice.create({
         invoiceName: invoiceName,
@@ -113,14 +114,23 @@ const createInvoice = catchAsync(async (req, res) => {
         companyId: contract.companyId,
         talentId: contract.talentId,
         issueDate: today,
-        dueDate: dueDate
+        dueDate: dueDate,
       });
       return res.status(201).json({ status: "success", data: invoice });
     } else {
-      return res.status(400).json({message:`Submitted work hours must be higher or equal to the minimum work hour for payment stipulated in the contract (${minHourForPayment} Hours)`})
+      return res
+        .status(400)
+        .json({
+          message: `Submitted work hours must be higher or equal to the minimum work hour for payment stipulated in the contract (${minHourForPayment} Hours)`,
+        });
     }
   } else {
-    return res.status(400).json({message:"You can't issue invoices for fixed contracts, it is automatically handled by our system"})
+    return res
+      .status(400)
+      .json({
+        message:
+          "You can't issue invoices for fixed contracts, it is automatically handled by our system",
+      });
   }
 });
 

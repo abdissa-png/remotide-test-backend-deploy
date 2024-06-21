@@ -9,56 +9,78 @@ const fetchWithdrawalMethods = catchAsync(async (req, res) => {
   return res.status(200).json({ status: "success", data: withdrawalMethods });
 });
 const fetchWithdrawalMethod = catchAsync(async (req, res) => {
-    const { userId } = req.user;
-    const { id } = req.params;
-    const withdrawalMethod = await Withdrawal.findOne({ userId: userId,_id:id });
-    if (withdrawalMethod) return res.status(200).json({ status: "success", data: withdrawalMethod });
-    else throw new AppError("Withdrawal method not found.",404)
+  const { userId } = req.user;
+  const { id } = req.params;
+  const withdrawalMethod = await Withdrawal.findOne({
+    userId: userId,
+    _id: id,
+  });
+  if (withdrawalMethod)
+    return res.status(200).json({ status: "success", data: withdrawalMethod });
+  else throw new AppError("Withdrawal method not found.", 404);
 });
 const createWithdrawalMethod = catchAsync(async (req, res) => {
   const { userId } = req.user;
   const { method, accountDetails } = req.body;
-  const user = User.findById(userId)
+  const user = User.findById(userId);
   if (!user) {
-    throw new AppError("The user ia not found in the database",404)
+    throw new AppError("The user ia not found in the database", 404);
+  }
+  const existingWithdrawalMethod = await Withdrawal.find({userId,method})
+  if (existingWithdrawalMethod) {
+    throw new AppError(`You have already submitted a withdrawal account on ${method}`)
   }
   const newWithdrawalMethod = await Withdrawal.create({
     userId,
     method,
     accountDetails,
   });
-  return res.status(201).json({ status: "success", message:"Withdrawal method successfully registered.",  data: newWithdrawalMethod });
+  return res
+    .status(201)
+    .json({
+      status: "success",
+      message: "Withdrawal method successfully registered.",
+      data: newWithdrawalMethod,
+    });
 });
 
 const updateWithdrawalMethod = catchAsync(async (req, res) => {
-    const { userId } = req.user
-    const { id } = req.params;
-    const withdrawalMethod = await Withdrawal.findById(id)
-    if (!withdrawalMethod) {
-        throw new AppError("Withdrawal method not found.",404)
-    }
-    if (withdrawalMethod.userId.toString() != userId) {
-        throw new AppError("Not Authorized to update this withdrawal method",401)
-    }
-    const { method,accountDetails } = req.body;
-    withdrawalMethod.method = method
-    withdrawalMethod.accountDetails = accountDetails
-    await withdrawalMethod.save()
-    return res.status(200).json({status:"success",message:"Withdrawal method successfully created",data:withdrawalMethod})
+  const { userId } = req.user;
+  const { id } = req.params;
+  const withdrawalMethod = await Withdrawal.findById(id);
+  if (!withdrawalMethod) {
+    throw new AppError("Withdrawal method not found.", 404);
+  }
+  if (withdrawalMethod.userId.toString() != userId) {
+    throw new AppError("Not Authorized to update this withdrawal method", 401);
+  }
+  const { method, accountDetails } = req.body;
+  withdrawalMethod.method = method;
+  withdrawalMethod.accountDetails = accountDetails;
+  await withdrawalMethod.save();
+  return res
+    .status(200)
+    .json({
+      status: "success",
+      message: "Withdrawal method successfully created",
+      data: withdrawalMethod,
+    });
 });
 
 const deleteWithdrawalMethod = catchAsync(async (req, res) => {
-    const { userId } = req.user
-    const { id } = req.params;
-    const withdrawalMethod = await Withdrawal.findById(id)
-    if (!withdrawalMethod) {
-        throw new AppError("Withdrawal method not found.",404)
-    }
-    if (withdrawalMethod.userId.toString() != userId) {
-        throw new AppError("Not Authorized to delete this withdrawal method",401)
-    }
-    await Withdrawal.findByIdAndDelete(id)
-    return res.status(200).json({status:"success",message:"Withdrawal method deleted"})
+  const { userId } = req.user;
+  const { id } = req.params;
+  const withdrawalMethod = await Withdrawal.findById(id);
+  if (!withdrawalMethod) {
+    throw new AppError("Withdrawal method not found.", 404);
+  }
+  if (withdrawalMethod.userId.toString() != userId) {
+    throw new AppError("Not Authorized to delete this withdrawal method", 401);
+  }
+  await Withdrawal.findByIdAndDelete(id);
+  return res
+    .status(200)
+    .json({ status: "success", message: "Withdrawal method deleted" });
 });
 
 module.exports = {

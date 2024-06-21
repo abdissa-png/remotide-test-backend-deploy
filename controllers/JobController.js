@@ -1,16 +1,14 @@
-const User = require('../models/userModel');
-const mongoose = require('mongoose');
-const JobPosting = require('../models/jobModel');
-const AppError = require('./../helpers/appError');
-const catchAsync = require('./../helpers/catchAsync');
-
-
+const User = require("../models/userModel");
+const mongoose = require("mongoose");
+const JobPosting = require("../models/jobModel");
+const AppError = require("./../helpers/appError");
+const catchAsync = require("./../helpers/catchAsync");
 
 // Controller function to create a new job posting
 const createJobPosting = catchAsync(async (req, res) => {
   const user = await User.findOne({ _id: req.body.company_id });
   if (!user) {
-    throw new AppError('No user data available for the given ID', 400);
+    throw new AppError("No user data available for the given ID", 400);
   }
 
   // Create a new job posting
@@ -27,27 +25,35 @@ const createJobPosting = catchAsync(async (req, res) => {
 
   // Respond with success message
   res.status(201).json({
-    status: 'success',
-    message: 'Job posted successfully',
+    status: "success",
+    message: "Job posted successfully",
   });
 });
 
 // Controller function to get all job postings
 const getAllJobPostings = catchAsync(async (req, res) => {
-  console.log(req)
-  const jobPostings = await JobPosting.find({isActive:true}).populate("skills");
+  console.log(req);
+  const jobPostings = await JobPosting.find({ isActive: true }).populate(
+    "skills"
+  );
   res.status(200).json(jobPostings);
 });
-const getJobPostings = catchAsync(async (req,res) => {
-  const {userId,role} = req.user;
-  const jobPostings = await JobPosting.find({company_id:userId,isActive:true})
-  res.status(200).json(jobPostings)
-})
+const getJobPostings = catchAsync(async (req, res) => {
+  const { userId, role } = req.user;
+  const jobPostings = await JobPosting.find({
+    company_id: userId,
+    isActive: true,
+  });
+  res.status(200).json(jobPostings);
+});
 // Controller function to get a job posting by ID
 const getJobPostingById = catchAsync(async (req, res) => {
-  const jobPosting = await JobPosting.findOne({_id:req.params.id,isActive:true});
+  const jobPosting = await JobPosting.findOne({
+    _id: req.params.id,
+    isActive: true,
+  });
   if (!jobPosting) {
-    throw new AppError('Job posting not found', 404);
+    throw new AppError("Job posting not found", 404);
   }
   res.status(200).json(jobPosting);
 });
@@ -57,12 +63,12 @@ const updateJobPostingById = catchAsync(async (req, res) => {
   const jobId = req.params.id;
 
   // Find the job posting by ID
-  let jobPosting = await JobPosting.findOne({_id:jobId,isActive:true});
+  let jobPosting = await JobPosting.findOne({ _id: jobId, isActive: true });
   if (!jobPosting) {
-    throw new AppError('Job posting not found', 404);
+    throw new AppError("Job posting not found", 404);
   }
   if (jobPosting.company_id.toString() !== req.user.userId) {
-    throw new AppError("Not Authorized to update this job",401)
+    throw new AppError("Not Authorized to update this job", 401);
   }
 
   // Update only the fields present in the request body
@@ -77,26 +83,33 @@ const updateJobPostingById = catchAsync(async (req, res) => {
 
   // Return the updated job posting
   res.status(200).json({
-    status: 'success',
-    message: 'Job posting updated successfully',
+    status: "success",
+    message: "Job posting updated successfully",
     jobPosting,
   });
 });
 
 // Controller function to delete a job posting by ID
 const deleteJobPostingById = catchAsync(async (req, res) => {
-  const deletedJobPosting = await JobPosting.findOne({_id:req.params.id,isActive:true});
+  const deletedJobPosting = await JobPosting.findOne({
+    _id: req.params.id,
+    isActive: true,
+  });
   if (!deletedJobPosting) {
-    throw new AppError('Job posting not found', 404);
+    throw new AppError("Job posting not found", 404);
   }
-  if (deletedJobPosting.company_id.toString() !== req.user.userId && req.user.role!="admin" && req.user.role!="superadmin" ) {
-    throw new AppError("Not Authorized to delete this job",401)
+  if (
+    deletedJobPosting.company_id.toString() !== req.user.userId &&
+    req.user.role != "admin" &&
+    req.user.role != "superadmin"
+  ) {
+    throw new AppError("Not Authorized to delete this job", 401);
   }
   deletedJobPosting.isActive = false;
   await deletedJobPosting.save();
   res.status(200).json({
-    status: 'success',
-    message: 'Job posting deleted successfully',
+    status: "success",
+    message: "Job posting deleted successfully",
   });
 });
 
@@ -105,9 +118,9 @@ const flagJobPostingById = catchAsync(async (req, res) => {
   const jobId = req.params.id;
 
   // Find the job posting by ID
-  let jobPosting = await JobPosting.findOne({_id:jobId,isActive:true});
+  let jobPosting = await JobPosting.findOne({ _id: jobId, isActive: true });
   if (!jobPosting) {
-    throw new AppError('Job posting not found', 404);
+    throw new AppError("Job posting not found", 404);
   }
   // if (jobPosting.company_id.toString() !== req.user.userId) {
   //   throw new AppError("Not Authorized to flagthis job this job",401)
@@ -120,8 +133,8 @@ const flagJobPostingById = catchAsync(async (req, res) => {
 
   // Return the updated job posting
   res.status(200).json({
-    status: 'success',
-    message: 'Job posting updated successfully',
+    status: "success",
+    message: "Job posting updated successfully",
     jobPosting,
   });
 });
@@ -131,14 +144,14 @@ const UnflagJobPostingById = catchAsync(async (req, res) => {
   const jobId = req.params.id;
 
   // Find the job posting by ID
-  let jobPosting = await JobPosting.findOne({_id:jobId,isActive:true});
+  let jobPosting = await JobPosting.findOne({ _id: jobId, isActive: true });
   if (!jobPosting) {
-    throw new AppError('Job posting not found', 404);
+    throw new AppError("Job posting not found", 404);
   }
   // if (jobPosting.company_id.toString() !== req.user.userId) {
   //   throw new AppError("Not Authorized to flagthis job this job",401)
   // }
-  // Set the violatesPolicy field to false 
+  // Set the violatesPolicy field to false
   jobPosting.violating_policies = false;
 
   // Save the updated job posting
@@ -146,8 +159,8 @@ const UnflagJobPostingById = catchAsync(async (req, res) => {
 
   // Return the updated job posting
   res.status(200).json({
-    status: 'success',
-    message: 'Job posting updated successfully',
+    status: "success",
+    message: "Job posting updated successfully",
     jobPosting,
   });
 });
@@ -160,5 +173,5 @@ module.exports = {
   updateJobPostingById,
   deleteJobPostingById,
   flagJobPostingById,
-  UnflagJobPostingById
+  UnflagJobPostingById,
 };
