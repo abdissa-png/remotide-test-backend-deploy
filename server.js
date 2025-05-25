@@ -18,9 +18,9 @@ mongoose.connect(MONGO_URL)
     console.log("Database connection failed", err);
   });
 
-  const server = app.listen(PORT, () => {
-    console.log(`App running on port ${PORT}...`);
-  });
+  // const server = app.listen(PORT, () => {
+  //   console.log(`App running on port ${PORT}...`);
+  // });
   
   process.on('unhandledRejection', err => {
     console.log('UNHANDLED REJECTION! 💥 Shutting down...');
